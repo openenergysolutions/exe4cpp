@@ -22,50 +22,45 @@
  * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE
  * USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-#ifndef EXE4CPP_ASIO_ASIOTIMER_H
-#define EXE4CPP_ASIO_ASIOTIMER_H
+#ifndef EXE4CPP_ASIO_ASIOEXECUTOR_H
+#define EXE4CPP_ASIO_ASIOEXECUTOR_H
 
-#include "exe4cpp/ITimer.h"
+#include "exe4cpp/IExecutor.h"
 
 #include "asio.hpp"
 
 namespace exe4cpp
 {
 
-class AsioTimer final : public exe4cpp::ITimer
+/**
+*
+* Simple implementation of openpal::IExecutor that directly uses asio::io_context
+*
+* Should only be used when asio::io_context::run() is called from a single thread
+*
+*/
+class AsioExecutor :
+    public exe4cpp::IExecutor
 {
-    friend class BasicExecutor;
-    friend class StrandExecutor;
-
 public:
-    AsioTimer(const std::shared_ptr<asio::io_context>& io_context) :
-        io_context{io_context},
-        impl{*io_context}
+    AsioExecutor(const std::shared_ptr<asio::io_context>& io_context) : io_context{io_context}
     {}
 
+    virtual ~AsioExecutor() = default;
+
     // Uncopyable
-    AsioTimer(const AsioTimer&) = delete;
-    AsioTimer& operator=(const AsioTimer&) = delete;
+    AsioExecutor(const AsioExecutor&) = delete;
+    AsioExecutor& operator=(const AsioExecutor&) = delete;
 
-    static std::shared_ptr<AsioTimer> create(const std::shared_ptr<asio::io_context>& io_context)
+    // lots of ASIO components must be initialized with a reference to the io_context
+    inline std::shared_ptr<asio::io_context> get_context()
     {
-        return std::make_shared<AsioTimer>(io_context);
+        return io_context;
     }
 
-    virtual void cancel() override
-    {
-        std::error_code ec;
-        impl.cancel(ec);
-    }
-
-    virtual steady_time_t expires_at() override
-    {
-        return impl.expires_at();
-    }
-
-private:
+protected:
+    // we hold a shared_ptr to the io_context so that it cannot dissapear while the executor is still around
     const std::shared_ptr<asio::io_context> io_context;
-    asio::basic_waitable_timer<std::chrono::steady_clock> impl;
 };
 
 }
